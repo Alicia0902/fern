@@ -1,6 +1,3 @@
-Ga naar `api/calendar.js` in GitHub → klik het potlood → vervang alles met:
-
-```javascript
 const { createClient } = require('@supabase/supabase-js');
 
 const sb = createClient(
