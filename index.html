@@ -1,0 +1,1161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Fern — Plant Care</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Fern"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#F4EDE1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #1F2420; color: #1F2420; font-family: -apple-system, "SF Pro", system-ui; overflow: hidden; height: 100%; }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; }
+  input { font-family: inherit; }
+  ::-webkit-scrollbar { display: none; }
+  @keyframes fernFade { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes fernSlide { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+  @keyframes fernBlink { 0%,60%,100%{opacity:0.25} 30%{opacity:1} }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<div id="root" style="height:100%;"></div>
+<script type="text/babel" data-presets="env,react">
+
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ── Palette
+const C = {
+  cream: '#F4EDE1',
+  paper: '#FBF7EE',
+  ink: '#1F2420',
+  inkSoft: '#49534C',
+  inkMute: '#8A8677',
+  forest: '#3E5641',
+  forestDeep: '#2B3C2E',
+  moss: '#6B8068',
+  clay: '#B8593A',
+  sand: '#D9C9A8',
+  line: 'rgba(31,36,32,0.10)',
+  lineSoft: 'rgba(31,36,32,0.06)',
+};
+
+// ── 200+ Real plant species database
+const PLANT_DB = [
+  // Easy
+  { name: 'Pothos', species: 'Epipremnum aureum', light: 'Low–Bright indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low–Medium', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'ZZ Plant', species: 'Zamioculcas zamiifolia', light: 'Low', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,1,2,2,3,3,3,2,2,1,1] },
+  { name: 'Snake Plant', species: 'Dracaena trifasciata', light: 'Low–Medium', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,1,2,3,4,4,4,3,2,1,1] },
+  { name: 'Spider Plant', species: 'Chlorophytum comosum', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,6,7,8,7,6,5,4,3] },
+  { name: 'Peace Lily', species: 'Spathiphyllum wallisii', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,7,8,9,8,7,5,3,3] },
+  { name: 'Aloe Vera', species: 'Aloe barbadensis', light: 'Bright direct', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,5,5,4,3,2,1] },
+  { name: 'Chinese Evergreen', species: 'Aglaonema commutatum', light: 'Low–Medium', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 21, humidity: 'Medium', curve: [2,2,3,4,5,6,6,6,5,4,3,2] },
+  { name: 'Jade Plant', species: 'Crassula ovata', light: 'Bright indirect', water: 'every 14–21 days', diff: 'Easy', waterDays: 16, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,3,4,4,4,3,2,2,1] },
+  { name: 'Heartleaf Philodendron', species: 'Philodendron hederaceum', light: 'Medium indirect', water: 'every 7 days', diff: 'Easy', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,6,8,8,7,6,5,4,3] },
+  { name: 'Hoya', species: 'Hoya carnosa', light: 'Bright indirect', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,4,6,7,7,7,6,4,3,2] },
+  { name: 'Cast Iron Plant', species: 'Aspidistra elatior', light: 'Low', water: 'every 14 days', diff: 'Easy', waterDays: 14, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,2,3,3,3,3,2,2,1,1] },
+  { name: 'Dracaena', species: 'Dracaena marginata', light: 'Medium indirect', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 21, humidity: 'Low–Medium', curve: [2,2,2,3,4,5,5,4,4,3,2,2] },
+  { name: 'Parlor Palm', species: 'Chamaedorea elegans', light: 'Low–Medium', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,6,7,7,7,6,5,4,3] },
+  { name: 'Bamboo Palm', species: 'Chamaedorea seifrizii', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 21, humidity: 'Medium–High', curve: [3,3,4,6,7,8,8,7,6,5,3,3] },
+  { name: 'Wax Plant', species: 'Hoya australis', light: 'Bright indirect', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,4,6,7,7,6,5,4,2,2] },
+  { name: 'Peperomia', species: 'Peperomia obtusifolia', light: 'Medium indirect', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 21, humidity: 'Low–Medium', curve: [2,2,3,4,5,6,6,6,5,4,3,2] },
+  { name: 'String of Hearts', species: 'Ceropegia woodii', light: 'Bright indirect', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Low–Medium', curve: [2,2,3,4,5,6,6,6,5,4,3,2] },
+  { name: 'Christmas Cactus', species: 'Schlumbergera bridgesii', light: 'Bright indirect', water: 'every 7–14 days', diff: 'Easy', waterDays: 10, feedDays: 30, rotateDays: 21, humidity: 'Medium', curve: [3,3,3,4,5,5,5,5,5,6,7,5] },
+  { name: 'Haworthia', species: 'Haworthiopsis attenuata', light: 'Bright indirect', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,5,5,4,3,2,1] },
+  { name: 'Pilea', species: 'Pilea peperomioides', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 7, humidity: 'Medium', curve: [3,3,4,5,7,8,8,7,6,5,4,3] },
+  // Medium
+  { name: 'Monstera', species: 'Monstera deliciosa', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Fiddle Leaf Fig', species: 'Ficus lyrata', light: 'Bright direct', water: 'every 7–10 days', diff: 'Medium', waterDays: 10, feedDays: 30, rotateDays: 7, humidity: 'Medium', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Rubber Plant', species: 'Ficus elastica', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'Philodendron', species: 'Philodendron bipinnatifidum', light: 'Medium indirect', water: 'every 7 days', diff: 'Medium', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,6,7,9,10,9,7,6,4,3] },
+  { name: 'Bird of Paradise', species: 'Strelitzia nicolai', light: 'Bright direct', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [4,4,6,8,10,12,14,12,10,8,5,4] },
+  { name: 'Alocasia', species: 'Alocasia polly', light: 'Bright indirect', water: 'every 4–6 days', diff: 'Medium', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,6,8,11,13,14,13,10,7,4,4] },
+  { name: 'Anthurium', species: 'Anthurium andraeanum', light: 'Medium indirect', water: 'every 6–8 days', diff: 'Medium', waterDays: 7, feedDays: 28, rotateDays: 21, humidity: 'High', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'String of Pearls', species: 'Curio rowleyanus', light: 'Bright indirect', water: 'every 14 days', diff: 'Medium', waterDays: 14, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [1,1,2,3,5,6,6,5,4,3,2,1] },
+  { name: 'Croton', species: 'Codiaeum variegatum', light: 'Bright direct', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Boston Fern', species: 'Nephrolepis exaltata', light: 'Medium indirect', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,7,9,11,14,15,14,11,8,5,5] },
+  { name: 'African Violet', species: 'Saintpaulia ionantha', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [4,4,5,6,7,8,8,8,7,6,5,4] },
+  { name: 'Bird Nest Fern', species: 'Asplenium nidus', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 28, rotateDays: 21, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Nerve Plant', species: 'Fittonia albivenis', light: 'Medium indirect', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,6,8,10,12,13,12,10,7,5,5] },
+  { name: 'Tradescantia', species: 'Tradescantia zebrina', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,7,4,3] },
+  { name: 'Schefflera', species: 'Schefflera arboricola', light: 'Medium–Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Norfolk Island Pine', species: 'Araucaria heterophylla', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 7, humidity: 'Medium', curve: [3,3,4,5,6,7,8,7,6,5,4,3] },
+  { name: 'Elephant Ear', species: 'Colocasia esculenta', light: 'Bright indirect', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [0,0,3,7,11,14,15,14,11,6,2,0] },
+  { name: 'Bromeliad', species: 'Guzmania lingulata', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 21, humidity: 'Medium–High', curve: [3,3,4,6,7,8,9,8,7,5,4,3] },
+  { name: 'Lucky Bamboo', species: 'Dracaena sanderiana', light: 'Low–Medium', water: 'change water weekly', diff: 'Medium', waterDays: 7, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [3,3,3,4,5,6,6,6,5,4,3,3] },
+  { name: 'Umbrella Plant', species: 'Cyperus alternifolius', light: 'Medium–Bright', water: 'keep soil wet', diff: 'Medium', waterDays: 3, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [6,6,7,9,11,13,14,13,11,8,6,6] },
+  { name: 'Pothos Marble Queen', species: 'Epipremnum aureum Marble Queen', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,5,6,7,7,7,6,4,3,2] },
+  { name: 'Monstera Thai Constellation', species: 'Monstera deliciosa Thai Constellation', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,6,7,9,10,9,7,6,4,3] },
+  { name: 'Syngonium', species: 'Syngonium podophyllum', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Dumb Cane', species: 'Dieffenbachia seguine', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 21, humidity: 'Medium', curve: [3,3,4,5,6,7,8,7,6,5,4,3] },
+  { name: 'Prayer Plant', species: 'Maranta leuconeura', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,8,10,11,10,8,6,4,4] },
+  { name: 'Cactus Bunny Ear', species: 'Opuntia microdasys', light: 'Bright direct', water: 'every 14–21 days', diff: 'Medium', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,5,5,4,3,2,1] },
+  { name: 'Barrel Cactus', species: 'Ferocactus wislizeni', light: 'Bright direct', water: 'every 14–21 days', diff: 'Medium', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,5,5,4,3,2,1] },
+  { name: 'Echeveria', species: 'Echeveria elegans', light: 'Bright direct', water: 'every 10–14 days', diff: 'Medium', waterDays: 12, feedDays: 30, rotateDays: 21, humidity: 'Low', curve: [1,1,2,3,5,6,7,6,5,4,2,1] },
+  { name: 'Sedum', species: 'Sedum morganianum', light: 'Bright direct', water: 'every 10–14 days', diff: 'Medium', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [1,1,2,4,5,6,7,6,5,4,2,1] },
+  { name: 'Aeonium', species: 'Aeonium arboreum', light: 'Bright indirect', water: 'every 10–14 days', diff: 'Medium', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [3,4,5,5,4,2,1,2,4,5,4,3] },
+  { name: 'Monstera Adansonii', species: 'Monstera adansonii', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Philodendron Brasil', species: 'Philodendron hederaceum Brasil', light: 'Medium indirect', water: 'every 7 days', diff: 'Medium', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,9,10,9,7,5,4,3] },
+  { name: 'Wandering Jew', species: 'Tradescantia fluminensis', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,6,3,3] },
+  { name: 'String of Bananas', species: 'Curio radicans', light: 'Bright indirect', water: 'every 14 days', diff: 'Medium', waterDays: 14, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [1,1,2,3,5,6,6,6,4,3,2,1] },
+  { name: 'Purple Heart', species: 'Tradescantia pallida', light: 'Bright indirect–direct', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Low–Medium', curve: [2,2,4,6,8,10,11,10,7,5,3,2] },
+  // Hard
+  { name: 'Calathea', species: 'Calathea orbifolia', light: 'Medium indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,6,8,10,12,13,12,10,8,6,5] },
+  { name: 'Orchid', species: 'Phalaenopsis amabilis', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Hard', waterDays: 8, feedDays: 14, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,5,7,8,8,7,6,5,4,3] },
+  { name: 'Fiddle Leaf', species: 'Ficus lyrata', light: 'Bright direct', water: 'every 7–10 days', diff: 'Hard', waterDays: 10, feedDays: 30, rotateDays: 7, humidity: 'Medium', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Maidenhair Fern', species: 'Adiantum raddianum', light: 'Medium indirect', water: 'every 2–3 days', diff: 'Hard', waterDays: 2, feedDays: 21, rotateDays: 14, humidity: 'Very High', curve: [8,8,10,12,14,16,17,16,14,11,8,8] },
+  { name: 'Bonsai Ficus', species: 'Ficus retusa', light: 'Bright indirect', water: 'every 3–5 days', diff: 'Hard', waterDays: 4, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [4,4,6,8,10,12,13,12,10,7,5,4] },
+  { name: 'Bonsai Juniper', species: 'Juniperus procumbens', light: 'Full sun', water: 'every 2–3 days', diff: 'Hard', waterDays: 2, feedDays: 14, rotateDays: 7, humidity: 'Low', curve: [5,5,7,9,11,13,14,13,11,8,6,5] },
+  { name: 'Bird of Paradise White', species: 'Strelitzia alba', light: 'Bright direct', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [4,4,6,8,11,13,14,13,11,8,5,4] },
+  { name: 'Alocasia Zebrina', species: 'Alocasia zebrina', light: 'Bright indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,6,8,11,13,15,13,10,7,4,4] },
+  { name: 'Gardenia', species: 'Gardenia jasminoides', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'High', curve: [4,4,6,8,10,12,13,12,10,7,5,4] },
+  { name: 'Camellia', species: 'Camellia japonica', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 7, humidity: 'Medium–High', curve: [6,7,8,7,5,4,4,4,5,6,6,6] },
+  { name: 'Carnivorous Pitcher', species: 'Nepenthes × ventrata', light: 'Bright indirect', water: 'keep wet', diff: 'Hard', waterDays: 2, feedDays: 0, rotateDays: 14, humidity: 'Very High', curve: [5,5,7,9,12,14,15,14,11,8,5,5] },
+  { name: 'Venus Flytrap', species: 'Dionaea muscipula', light: 'Bright direct', water: 'keep wet', diff: 'Hard', waterDays: 2, feedDays: 0, rotateDays: 14, humidity: 'Very High', curve: [3,3,5,8,12,14,15,14,11,7,4,3] },
+  { name: 'Sundew', species: 'Drosera capensis', light: 'Bright direct', water: 'keep wet', diff: 'Hard', waterDays: 2, feedDays: 0, rotateDays: 14, humidity: 'Very High', curve: [3,3,5,8,12,14,15,14,11,7,4,3] },
+  { name: 'Streptocarpus', species: 'Streptocarpus saxorum', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 14, rotateDays: 14, humidity: 'Medium–High', curve: [4,4,5,6,8,9,10,9,7,5,4,4] },
+  // More popular houseplants
+  { name: 'Pothos Golden', species: 'Epipremnum aureum Golden', light: 'Low–Bright indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low–Medium', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'Neon Pothos', species: 'Epipremnum aureum Neon', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'Monstera Peru', species: 'Monstera karstenianum', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,9,10,9,7,5,4,3] },
+  { name: 'Monstera Pinnatipartita', species: 'Monstera pinnatipartita', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Scindapsus Pictus', species: 'Scindapsus pictus', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,5,6,7,8,7,6,4,3,2] },
+  { name: 'Philodendron Pink Princess', species: 'Philodendron erubescens Pink Princess', light: 'Bright indirect', water: 'every 7 days', diff: 'Hard', waterDays: 7, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Philodendron White Knight', species: 'Philodendron erubescens White Knight', light: 'Bright indirect', water: 'every 7 days', diff: 'Hard', waterDays: 7, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Philodendron Birkin', species: 'Philodendron Birkin', light: 'Medium indirect', water: 'every 7 days', diff: 'Medium', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Calathea Ornata', species: 'Calathea ornata', light: 'Medium indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,6,8,10,12,13,12,10,8,6,5] },
+  { name: 'Calathea Medallion', species: 'Calathea veitchiana', light: 'Medium indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,6,8,10,12,13,12,10,8,6,5] },
+  { name: 'Calathea Rattlesnake', species: 'Calathea lancifolia', light: 'Medium indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [5,5,6,8,10,12,13,12,10,8,6,5] },
+  { name: 'Stromanthe', species: 'Stromanthe sanguinea', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Ctenanthe', species: 'Ctenanthe burle-marxii', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Ficus Audrey', species: 'Ficus benghalensis', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'Ficus Triangularis', species: 'Ficus triangularis', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,9,10,9,7,5,4,3] },
+  { name: 'Ponytail Palm', species: 'Beaucarnea recurvata', light: 'Bright direct', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,5,5,4,3,2,1] },
+  { name: 'Yucca', species: 'Yucca elephantipes', light: 'Bright direct', water: 'every 10–14 days', diff: 'Easy', waterDays: 12, feedDays: 30, rotateDays: 21, humidity: 'Low', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'Corn Plant', species: 'Dracaena fragrans', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 21, humidity: 'Low–Medium', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'Weeping Fig', species: 'Ficus benjamina', light: 'Bright indirect', water: 'every 7 days', diff: 'Medium', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'Arrowhead Plant', species: 'Syngonium podophyllum', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Coleus', species: 'Plectranthus scutellarioides', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 21, rotateDays: 7, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,6,3,3] },
+  { name: 'Impatiens', species: 'Impatiens walleriana', light: 'Medium indirect', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [0,0,0,5,9,13,14,13,10,5,0,0] },
+  { name: 'Begonia Rex', species: 'Begonia rex', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,6,4,3] },
+  { name: 'Begonia Wax', species: 'Begonia cucullata', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,6,4,3] },
+  { name: 'Oxalis', species: 'Oxalis triangularis', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [4,5,6,6,5,3,2,3,5,6,5,4] },
+  { name: 'Cyclamen', species: 'Cyclamen persicum', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [7,7,6,4,2,0,0,0,3,6,8,8] },
+  { name: 'Amaryllis', species: 'Hippeastrum hybridum', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 14, rotateDays: 14, humidity: 'Medium', curve: [5,4,3,2,1,0,0,0,2,4,6,6] },
+  { name: 'Hyacinth', species: 'Hyacinthus orientalis', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [6,8,7,4,2,0,0,0,0,1,3,5] },
+  { name: 'Tulip', species: 'Tulipa gesneriana', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [5,7,8,6,2,0,0,0,0,0,2,4] },
+  { name: 'Daffodil', species: 'Narcissus pseudonarcissus', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [5,7,8,7,3,0,0,0,0,0,2,4] },
+  { name: 'Lavender', species: 'Lavandula angustifolia', light: 'Bright direct', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [2,2,3,5,7,9,10,9,7,5,3,2] },
+  { name: 'Rosemary', species: 'Salvia rosmarinus', light: 'Bright direct', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [3,3,4,5,6,7,8,7,6,5,4,3] },
+  { name: 'Basil', species: 'Ocimum basilicum', light: 'Bright direct', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 21, rotateDays: 7, humidity: 'Medium', curve: [0,0,0,5,9,12,14,12,9,5,0,0] },
+  { name: 'Mint', species: 'Mentha spicata', light: 'Medium–Bright', water: 'every 3–5 days', diff: 'Easy', waterDays: 4, feedDays: 21, rotateDays: 7, humidity: 'Medium–High', curve: [0,0,3,7,10,13,14,13,10,6,2,0] },
+  { name: 'Thyme', species: 'Thymus vulgaris', light: 'Bright direct', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [2,2,3,5,7,9,10,9,7,5,3,2] },
+  { name: 'Parsley', species: 'Petroselinum crispum', light: 'Bright indirect', water: 'every 3–5 days', diff: 'Easy', waterDays: 4, feedDays: 21, rotateDays: 7, humidity: 'Medium', curve: [0,0,2,6,9,12,13,12,9,5,1,0] },
+  { name: 'Chives', species: 'Allium schoenoprasum', light: 'Bright direct', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,10,11,10,8,5,3,3] },
+  { name: 'Lemon Balm', species: 'Melissa officinalis', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [2,2,4,6,9,11,12,11,8,5,3,2] },
+  { name: 'Sage', species: 'Salvia officinalis', light: 'Bright direct', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [2,2,3,5,7,9,10,9,7,5,3,2] },
+  { name: 'Lemon Tree', species: 'Citrus limon', light: 'Bright direct', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 14, rotateDays: 14, humidity: 'Medium', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Olive Tree', species: 'Olea europaea', light: 'Bright direct', water: 'every 7–14 days', diff: 'Medium', waterDays: 10, feedDays: 30, rotateDays: 14, humidity: 'Low', curve: [2,2,4,6,8,9,10,9,8,6,3,2] },
+  { name: 'Fig Tree', species: 'Ficus carica', light: 'Bright direct', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [0,0,3,7,10,13,14,13,10,5,0,0] },
+  { name: 'Avocado', species: 'Persea americana', light: 'Bright direct', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,10,12,13,12,10,7,4,3] },
+  { name: 'Tomato Cherry', species: 'Solanum lycopersicum', light: 'Bright direct', water: 'every 2–3 days', diff: 'Medium', waterDays: 2, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [0,0,0,5,10,14,16,14,10,4,0,0] },
+  { name: 'Pepper', species: 'Capsicum annuum', light: 'Bright direct', water: 'every 2–3 days', diff: 'Medium', waterDays: 2, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [0,0,0,4,9,13,15,13,9,4,0,0] },
+  { name: 'Strawberry', species: 'Fragaria ananassa', light: 'Bright direct', water: 'every 3–5 days', diff: 'Medium', waterDays: 4, feedDays: 14, rotateDays: 7, humidity: 'Medium', curve: [4,4,5,8,11,14,14,12,9,6,4,4] },
+  { name: 'Succulent Mix', species: 'Various Succulent', light: 'Bright direct', water: 'every 14–21 days', diff: 'Easy', waterDays: 16, feedDays: 60, rotateDays: 21, humidity: 'Low', curve: [1,1,2,3,4,5,6,5,4,3,2,1] },
+  { name: 'Cactus Mix', species: 'Various Cactaceae', light: 'Bright direct', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,1,2,3,5,6,5,3,2,1,1] },
+  { name: 'Lithops', species: 'Lithops hookeri', light: 'Bright direct', water: 'every 30+ days', diff: 'Hard', waterDays: 30, feedDays: 90, rotateDays: 30, humidity: 'Very Low', curve: [0,0,1,2,0,0,0,0,2,4,4,1] },
+  { name: 'Gasteria', species: 'Gasteria bicolor', light: 'Bright indirect', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,2,3,4,5,6,5,4,3,2,1] },
+  { name: 'Sansevieria Cylindrica', species: 'Dracaena angolensis', light: 'Low–Bright', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,1,2,3,4,4,4,3,2,1,1] },
+  { name: 'Pothos Satin', species: 'Scindapsus pictus Argyraeus', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,5,6,7,8,7,6,4,3,2] },
+  { name: 'Monstera Dubia', species: 'Monstera dubia', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Hard', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Rhaphidophora Tetrasperma', species: 'Rhaphidophora tetrasperma', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Epipremnum Pinnatum', species: 'Epipremnum pinnatum', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,5,6,7,8,7,6,4,3,2] },
+  { name: 'Dischidia', species: 'Dischidia nummularia', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium–High', curve: [2,2,3,5,7,8,8,7,5,4,3,2] },
+  { name: 'Lipstick Plant', species: 'Aeschynanthus radicans', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Columnea', species: 'Columnea hirta', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Hard', waterDays: 7, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'Goldfish Plant', species: 'Nematanthus gregarius', light: 'Bright indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 21, rotateDays: 14, humidity: 'Medium–High', curve: [3,3,4,6,8,9,10,9,8,6,4,3] },
+  { name: 'Wax Begonia', species: 'Begonia semperflorens', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Easy', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,5,7,9,11,12,11,9,6,4,3] },
+  { name: 'Polka Dot Plant', species: 'Hypoestes phyllostachya', light: 'Medium indirect', water: 'every 5–7 days', diff: 'Medium', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Caladium', species: 'Caladium bicolor', light: 'Medium indirect', water: 'every 3–5 days', diff: 'Hard', waterDays: 4, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [0,0,0,4,9,13,15,13,9,3,0,0] },
+  { name: 'Croton Petra', species: 'Codiaeum variegatum Petra', light: 'Bright direct', water: 'every 5–7 days', diff: 'Medium', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Dracaena Song of India', species: 'Dracaena reflexa', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 9, feedDays: 30, rotateDays: 21, humidity: 'Medium', curve: [2,2,3,4,5,6,7,6,5,4,3,2] },
+  { name: 'Alocasia Frydek', species: 'Alocasia micholitziana Frydek', light: 'Bright indirect', water: 'every 4–6 days', diff: 'Hard', waterDays: 5, feedDays: 21, rotateDays: 14, humidity: 'Very High', curve: [4,4,6,8,11,13,14,13,10,7,4,4] },
+  { name: 'Philodendron Gloriosum', species: 'Philodendron gloriosum', light: 'Bright indirect', water: 'every 7 days', diff: 'Hard', waterDays: 7, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,4,6,8,10,11,10,8,6,4,3] },
+  { name: 'Anthurium Clarinervium', species: 'Anthurium clarinervium', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [4,4,5,7,9,11,12,11,9,7,5,4] },
+  { name: 'Hoya Kerrii', species: 'Hoya kerrii', light: 'Bright indirect', water: 'every 14 days', diff: 'Easy', waterDays: 14, feedDays: 30, rotateDays: 14, humidity: 'Low–Medium', curve: [1,1,2,3,5,6,7,6,5,4,2,1] },
+  { name: 'Hoya Compacta', species: 'Hoya carnosa Compacta', light: 'Bright indirect', water: 'every 10–14 days', diff: 'Medium', waterDays: 12, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,4,6,7,7,7,6,4,3,2] },
+  { name: 'Cissus Discolor', species: 'Cissus discolor', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,5,7,9,12,13,12,9,6,4,3] },
+  { name: 'Begonia Maculata', species: 'Begonia maculata', light: 'Bright indirect', water: 'every 5–7 days', diff: 'Hard', waterDays: 6, feedDays: 21, rotateDays: 14, humidity: 'High', curve: [3,3,5,7,9,11,12,11,9,6,4,3] },
+  { name: 'Raven ZZ', species: 'Zamioculcas zamiifolia Raven', light: 'Low', water: 'every 14–21 days', diff: 'Easy', waterDays: 18, feedDays: 60, rotateDays: 30, humidity: 'Low', curve: [1,1,1,2,2,3,3,3,2,2,1,1] },
+  { name: 'Silver Satin', species: 'Scindapsus pictus Exotica', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Easy', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [2,2,3,5,6,7,8,7,6,4,3,2] },
+  { name: 'Plerandra', species: 'Plerandra elegantissima', light: 'Medium indirect', water: 'every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 28, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Bromeliaceae', species: 'Neoregelia carolinae', light: 'Medium indirect', water: 'keep cup filled', diff: 'Medium', waterDays: 7, feedDays: 30, rotateDays: 21, humidity: 'Medium–High', curve: [3,3,4,6,7,8,9,8,7,5,4,3] },
+  { name: 'Tillandsia', species: 'Tillandsia ionantha', light: 'Bright indirect', water: 'mist every 3 days', diff: 'Medium', waterDays: 3, feedDays: 21, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,6,8,9,10,9,7,5,3,3] },
+  { name: 'Tillandsia Xerographica', species: 'Tillandsia xerographica', light: 'Bright indirect', water: 'mist weekly', diff: 'Easy', waterDays: 7, feedDays: 28, rotateDays: 14, humidity: 'Low–Medium', curve: [2,2,3,5,7,8,9,8,6,4,2,2] },
+  { name: 'Kokedama Moss Ball', species: 'Various in moss', light: 'Medium indirect', water: 'soak every 7–10 days', diff: 'Medium', waterDays: 8, feedDays: 30, rotateDays: 14, humidity: 'Medium', curve: [3,3,4,5,7,8,9,8,7,5,4,3] },
+  { name: 'Terrarium Fittonia', species: 'Fittonia verschaffeltii', light: 'Low–Medium', water: 'every 3–4 days', diff: 'Medium', waterDays: 3, feedDays: 28, rotateDays: 14, humidity: 'Very High', curve: [6,6,7,9,11,13,14,13,11,8,6,6] },
+];
+
+// ── Icons
+const Icon = {
+  drop: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3c-3 4-6 7.5-6 11a6 6 0 0012 0c0-3.5-3-7-6-11z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>),
+  leaf: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/><path d="M5 19L14 10" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>),
+  sun: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke={c} strokeWidth="1.6"/>{[0,45,90,135,180,225,270,315].map(a=>(<line key={a} x1="12" y1="3" x2="12" y2="5" stroke={c} strokeWidth="1.6" strokeLinecap="round" transform={`rotate(${a} 12 12)`}/>))}</svg>),
+  rotate: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M18 3v4h-4M6 21v-4h4" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  pot: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 10h14l-1.5 10h-11L5 10z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/><path d="M4 7h16" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>),
+  chat: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11h-8l-5 4v-4H4V5z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>),
+  plus: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  search: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6" stroke={c} strokeWidth="1.8"/><path d="M20 20l-4-4" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>),
+  cal: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="15" rx="2" stroke={c} strokeWidth="1.6"/><path d="M4 10h16M9 3v4M15 3v4" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>),
+  wave: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M3 12c2 0 2-4 4-4s2 8 4 8 2-8 4-8 2 4 4 4" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>),
+  back: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  close: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>),
+  check: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  share: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3v12M7 8l5-5 5 5" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 13v6h14v-6" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>),
+  spark: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" fill={c}/></svg>),
+  camera: (c=C.ink,s=18) => (<svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M4 8h3l2-2h6l2 2h3v11H4V8z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/><circle cx="12" cy="13" r="3.5" stroke={c} strokeWidth="1.6"/></svg>),
+};
+
+// ── Utils
+const today = new Date();
+const todayISO = today.toISOString().split('T')[0];
+
+function addDays(iso, days) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+function fmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function daysUntil(iso) {
+  const t = new Date(todayISO + 'T00:00:00').getTime();
+  const d = new Date(iso + 'T00:00:00').getTime();
+  return Math.round((d - t) / 86400000);
+}
+function dayLabel(iso) {
+  const n = daysUntil(iso);
+  if (n < 0) return `${-n}d overdue`;
+  if (n === 0) return 'today';
+  if (n === 1) return 'tomorrow';
+  return `in ${n}d`;
+}
+function withMe(iso) {
+  const d1 = new Date(iso).getTime();
+  const d2 = today.getTime();
+  const days = Math.round((d2 - d1) / 86400000);
+  if (days > 365) return `${(days/365).toFixed(1)}y`;
+  if (days > 30) return `${Math.round(days/30)}mo`;
+  return `${days}d`;
+}
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const curMonth = today.getMonth();
+const plantHues = ['#3E5641','#6B8068','#2B3C2E','#B8593A','#4A7FA8','#7B5EA7','#A08050','#5B7A4A'];
+const plantTints = ['#A8B79B','#C3CBA8','#9BA68E','#E3B8A0','#B8D4E8','#C8B8D8','#D4C098','#B8C8A8'];
+
+// ── Shared UI
+function SeasonalWash() {
+  return (
+    <div aria-hidden style={{ position:'absolute', top:0, left:0, right:0, height:'62%', pointerEvents:'none', zIndex:0, overflow:'hidden' }}>
+      <div style={{ position:'absolute', top:'-22%', right:'-18%', width:'85%', aspectRatio:'1', background:C.clay, opacity:0.55, borderRadius:'50%', filter:'blur(60px)' }}/>
+      <div style={{ position:'absolute', top:'-28%', left:'-22%', width:'80%', aspectRatio:'1', background:C.forest, opacity:0.32, borderRadius:'50%', filter:'blur(70px)' }}/>
+      <div style={{ position:'absolute', top:'14%', left:'18%', width:'70%', aspectRatio:'1', background:C.moss, opacity:0.3, borderRadius:'50%', filter:'blur(80px)' }}/>
+      <div style={{ position:'absolute', inset:0, background:`linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 55%, ${C.cream} 100%)` }}/>
+    </div>
+  );
+}
+function ScreenShell({ children, bg=C.cream }) {
+  return (
+    <div style={{ position:'absolute', inset:0, background:bg, color:C.ink, display:'flex', flexDirection:'column', fontFamily:'-apple-system, "SF Pro", system-ui, sans-serif', overflow:'hidden' }}>
+      <SeasonalWash/>
+      <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', flex:1, minHeight:0 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+function TopBar({ title, left, right }) {
+  return (
+    <div style={{ paddingTop:52, paddingLeft:20, paddingRight:20, paddingBottom:10, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+      <div style={{ width:32, display:'flex', justifyContent:'flex-start' }}>{left}</div>
+      <div style={{ flex:1, textAlign:'center', fontSize:20, letterSpacing:0.2, fontWeight:500 }}>{title}</div>
+      <div style={{ width:32, display:'flex', justifyContent:'flex-end' }}>{right}</div>
+    </div>
+  );
+}
+function CircleBtn({ children, onClick, size=34, bg='rgba(255,255,255,0.7)' }) {
+  return (
+    <button onClick={onClick} style={{ width:size, height:size, borderRadius:999, border:`0.5px solid ${C.line}`, background:bg, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', padding:0 }}>{children}</button>
+  );
+}
+function SectionLabel({ children }) {
+  return <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase', marginBottom:10, padding:'0 4px' }}>{children}</div>;
+}
+function PlantTile({ plant, size=72, radius=18 }) {
+  const idx = plant.id ? parseInt(plant.id.replace('p','')) % plantHues.length : 0;
+  const hue = plant.hue || plantHues[idx];
+  const tint = plant.tint || plantTints[idx];
+  return (
+    <div style={{ width:size, height:size, borderRadius:radius, background:`repeating-linear-gradient(135deg, ${hue} 0 8px, ${tint} 8px 16px)`, flexShrink:0, position:'relative', overflow:'hidden', boxShadow:'inset 0 0 0 0.5px rgba(0,0,0,0.15)' }}>
+      <div style={{ position:'absolute', inset:0, background:`radial-gradient(circle at 30% 25%, rgba(255,255,255,0.28), transparent 55%)` }}/>
+      <div style={{ position:'absolute', left:5, bottom:4, right:5, fontFamily:'"JetBrains Mono", monospace', fontSize:7, color:'rgba(255,255,255,0.7)', letterSpacing:0.5, textTransform:'uppercase' }}>{plant.species ? plant.species.split(' ')[0] : ''}</div>
+    </div>
+  );
+}
+
+// ── TabBar
+function TabBar({ screen, go }) {
+  const tabs = [
+    { id:'home', label:'Garden', icon:Icon.leaf },
+    { id:'season', label:'Season', icon:Icon.wave },
+    { id:'add', label:'', icon:null, primary:true },
+    { id:'calendar', label:'Calendar', icon:Icon.cal },
+    { id:'chat', label:'Ask', icon:Icon.chat },
+  ];
+  return (
+    <div style={{ position:'absolute', left:0, right:0, bottom:0, zIndex:30, padding:'10px 16px 30px', background:`linear-gradient(to top, ${C.cream} 40%, rgba(244,237,225,0))` }}>
+      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-around' }}>
+        {tabs.map(t => {
+          if (t.primary) return (
+            <button key={t.id} onClick={() => go('add')} style={{ width:52, height:52, borderRadius:999, border:'none', background:C.forestDeep, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', boxShadow:'0 4px 10px rgba(62,86,65,0.4)' }}>{Icon.plus(C.cream, 22)}</button>
+          );
+          const active = screen === t.id;
+          return (
+            <button key={t.id} onClick={() => go(t.id)} style={{ border:'none', background:'transparent', cursor:'pointer', padding:'6px 4px', display:'flex', flexDirection:'column', alignItems:'center', gap:3, minWidth:48 }}>
+              {t.icon(active ? C.forest : C.inkMute, 20)}
+              <div style={{ fontSize:10, fontFamily:'"JetBrains Mono", monospace', color:active ? C.forest : C.inkMute, letterSpacing:0.5, textTransform:'uppercase' }}>{t.label}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── HOME Screen
+function HomeScreen({ go, setActivePlant, plants }) {
+  const now = todayISO;
+  const tasks = plants.flatMap(p => [
+    { plant:p, type:'water', next:p.water.next },
+    { plant:p, type:'feed', next:p.feed.next },
+    { plant:p, type:'rotate', next:p.rotate.next },
+  ]).filter(t => daysUntil(t.next) <= 2).sort((a,b) => daysUntil(a.next) - daysUntil(b.next));
+
+  const dayOfWeek = today.toLocaleDateString('en-US', { weekday:'short' }).toUpperCase();
+  const dateStr = today.toLocaleDateString('en-US', { month:'long', day:'numeric' });
+  const hour = today.getHours();
+  const greeting = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
+
+  return (
+    <ScreenShell>
+      <TopBar
+        title={dateStr}
+        left={<div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkMute, letterSpacing:1 }}>{dayOfWeek}</div>}
+        right={<CircleBtn size={32}>{Icon.search(C.ink, 16)}</CircleBtn>}
+      />
+      <div style={{ flex:1, overflow:'auto', paddingBottom:110 }}>
+        <div style={{ padding:'8px 24px 18px' }}>
+          <div style={{ fontSize:36, lineHeight:1.15, color:C.forestDeep, letterSpacing:-0.5, fontWeight:500 }}>
+            {greeting}<br/><span style={{ fontStyle:'italic', fontWeight:400 }}>your garden</span> {plants.length === 0 ? 'awaits' : 'needs'}
+          </div>
+          <div style={{ marginTop:18, display:'flex', gap:16, alignItems:'baseline', fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkSoft, letterSpacing:1, textTransform:'uppercase' }}>
+            <div><span style={{ fontSize:22, color:C.forest }}>{tasks.length}</span>&nbsp;tasks</div>
+            <div style={{ width:1, height:12, background:C.line }}/>
+            <div><span style={{ fontSize:22, color:C.forest }}>{plants.length}</span>&nbsp;plants</div>
+            <div style={{ width:1, height:12, background:C.line }}/>
+            <div><span style={{ fontSize:22, color:C.clay }}>↑</span>&nbsp;spring</div>
+          </div>
+        </div>
+
+        {plants.length === 0 ? (
+          <div style={{ padding:'0 20px' }}>
+            <div style={{ background:C.paper, borderRadius:22, padding:28, border:`0.5px solid ${C.line}`, textAlign:'center' }}>
+              <div style={{ fontSize:48, marginBottom:12 }}>🌿</div>
+              <div style={{ fontSize:20, color:C.forestDeep, letterSpacing:-0.3, marginBottom:8 }}>Your garden is empty</div>
+              <div style={{ fontSize:13, color:C.inkSoft, lineHeight:1.6 }}>Tap the <span style={{ fontWeight:600 }}>+</span> button below to add your first plant.</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {tasks.length > 0 && (
+              <div style={{ padding:'0 20px' }}>
+                <div style={{ background:C.paper, borderRadius:22, padding:18, border:`0.5px solid ${C.line}` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                    <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, letterSpacing:1, textTransform:'uppercase', color:C.inkMute }}>Today & tomorrow</div>
+                    <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.clay }}>{tasks.length.toString().padStart(2,'0')}</div>
+                  </div>
+                  {tasks.slice(0,5).map((t,i) => (
+                    <TaskRow key={i} task={t} onClick={() => { setActivePlant(t.plant.id); go('detail'); }}/>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ padding:'28px 20px 0' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:12, padding:'0 4px' }}>
+                <div style={{ fontSize:26, color:C.forestDeep }}>My plants</div>
+                <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkMute, letterSpacing:1 }}>BY ROOM ↓</div>
+              </div>
+              {plants.map(p => (
+                <PlantRowItem key={p.id} plant={p} onClick={() => { setActivePlant(p.id); go('detail'); }}/>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </ScreenShell>
+  );
+}
+
+function TaskRow({ task, onClick }) {
+  const iconMap = { water:Icon.drop, feed:Icon.leaf, rotate:Icon.rotate };
+  const colorMap = { water:'#4A7FA8', feed:C.forest, rotate:C.clay };
+  const label = { water:'Water', feed:'Feed', rotate:'Rotate' }[task.type];
+  const overdue = daysUntil(task.next) < 0;
+  return (
+    <div onClick={onClick} style={{ display:'flex', alignItems:'center', gap:14, padding:'10px 0', borderTop:`0.5px solid ${C.lineSoft}`, cursor:'pointer' }}>
+      <div style={{ width:36, height:36, borderRadius:999, background:colorMap[task.type]+'15', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {iconMap[task.type](colorMap[task.type], 18)}
+      </div>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:15, color:C.ink }}>{label} <span style={{ fontStyle:'italic', fontSize:17 }}>{task.plant.nick}</span></div>
+        <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:1 }}>{task.plant.name.toUpperCase()} · {task.plant.room}</div>
+      </div>
+      <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:overdue?C.clay:C.inkSoft, letterSpacing:0.5, textAlign:'right' }}>{dayLabel(task.next)}</div>
+    </div>
+  );
+}
+
+function PlantRowItem({ plant, onClick }) {
+  const nextTask = [
+    { type:'water', d:daysUntil(plant.water.next), icon:Icon.drop, c:'#4A7FA8' },
+    { type:'feed', d:daysUntil(plant.feed.next), icon:Icon.leaf, c:C.forest },
+    { type:'rotate', d:daysUntil(plant.rotate.next), icon:Icon.rotate, c:C.clay },
+  ].sort((a,b) => a.d - b.d)[0];
+  return (
+    <div onClick={onClick} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 4px', borderBottom:`0.5px solid ${C.lineSoft}`, cursor:'pointer' }}>
+      <PlantTile plant={plant} size={60} radius={14}/>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+          <div style={{ fontSize:22, color:C.ink, letterSpacing:-0.2 }}>{plant.nick}</div>
+          <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', letterSpacing:0.5 }}>{plant.name.toUpperCase()}</div>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:3 }}>
+          <div style={{ fontSize:12, color:C.inkSoft, fontStyle:'italic' }}>{plant.room}</div>
+          <div style={{ width:3, height:3, borderRadius:999, background:C.inkMute }}/>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            {nextTask.icon(nextTask.c, 12)}
+            <div style={{ fontSize:11, color:nextTask.c, fontFamily:'"JetBrains Mono", monospace' }}>{dayLabel(plant[nextTask.type].next)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DETAIL Screen
+function DetailScreen({ go, plant, onUpdatePlant }) {
+  if (!plant) return null;
+  const [logging, setLogging] = useState(null);
+  const tasks = [
+    { type:'water', label:'Water', icon:Icon.drop, c:'#4A7FA8', d:plant.water, unit:'days' },
+    { type:'feed', label:'Feed', icon:Icon.leaf, c:C.forest, d:plant.feed, unit:'days' },
+    { type:'rotate', label:'Rotate', icon:Icon.rotate, c:C.clay, d:plant.rotate, unit:'days' },
+    { type:'repot', label:'Repot', icon:Icon.pot, c:C.moss, d:plant.repot, unit:'days' },
+  ];
+
+  const markDone = (type) => {
+    const updated = { ...plant };
+    updated[type] = { ...plant[type], last:todayISO, next:addDays(todayISO, plant[type].every) };
+    updated.log = [{ date:todayISO, type, note:'' }, ...(plant.log || [])];
+    onUpdatePlant(updated);
+    setLogging(null);
+  };
+
+  const idx = plant.id ? parseInt(plant.id.replace('p','')) % plantHues.length : 0;
+  const hue = plant.hue || plantHues[idx];
+  const tint = plant.tint || plantTints[idx];
+
+  return (
+    <ScreenShell bg={C.cream}>
+      <div style={{ height:300, position:'relative', flexShrink:0, background:`repeating-linear-gradient(135deg, ${hue} 0 24px, ${tint} 24px 48px)` }}>
+        <div style={{ position:'absolute', inset:0, background:`radial-gradient(circle at 35% 20%, rgba(255,255,255,0.25), transparent 60%)` }}/>
+        <div style={{ position:'absolute', top:52, left:20, right:20, display:'flex', justifyContent:'space-between' }}>
+          <CircleBtn size={36} onClick={() => go('home')} bg="rgba(255,255,255,0.85)">{Icon.back(C.ink, 16)}</CircleBtn>
+          <CircleBtn size={36} bg="rgba(255,255,255,0.85)">{Icon.camera(C.ink, 16)}</CircleBtn>
+        </div>
+        <div style={{ position:'absolute', bottom:16, left:22, right:22, color:'#fff' }}>
+          <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:2, opacity:0.85, textTransform:'uppercase' }}>{plant.species}</div>
+          <div style={{ fontSize:48, lineHeight:1, letterSpacing:-1, marginTop:2 }}>{plant.nick}</div>
+          <div style={{ marginTop:4, fontSize:13, fontStyle:'italic', opacity:0.92 }}>{plant.name} · {plant.room}</div>
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflow:'auto', paddingBottom:60 }}>
+        <div style={{ padding:'20px 20px 0' }}>
+          <SectionLabel>Care schedule</SectionLabel>
+          <div style={{ background:C.paper, borderRadius:22, border:`0.5px solid ${C.line}`, overflow:'hidden' }}>
+            {tasks.map((t, i) => {
+              const overdue = daysUntil(t.d.next) < 0;
+              return (
+                <div key={t.type} onClick={() => markDone(t.type)} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderBottom:i<tasks.length-1?`0.5px solid ${C.lineSoft}`:'none', cursor:'pointer', background:'transparent', transition:'background 0.1s' }}>
+                  <div style={{ width:38, height:38, borderRadius:10, background:t.c+'15', display:'flex', alignItems:'center', justifyContent:'center' }}>{t.icon(t.c, 18)}</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:500 }}>{t.label}</div>
+                    <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:2 }}>EVERY {t.d.every} {t.unit.toUpperCase()}</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:13, color:overdue?C.clay:C.ink }}>{fmtDate(t.d.next).toUpperCase()}</div>
+                    <div style={{ fontSize:10, color:overdue?C.clay:C.inkMute, marginTop:1, fontFamily:'"JetBrains Mono", monospace' }}>{dayLabel(t.d.next)}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:11, color:C.inkMute, textAlign:'center', marginTop:8, fontStyle:'italic' }}>Tap a task to mark it done</div>
+        </div>
+
+        <div style={{ padding:'22px 20px 0' }}>
+          <SectionLabel>Conditions</SectionLabel>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:18, padding:14 }}>
+              <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.inkMute, letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>Light</div>
+              <div style={{ fontSize:16, color:C.ink, lineHeight:1.2 }}>{plant.light}</div>
+            </div>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:18, padding:14 }}>
+              <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.inkMute, letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>Humidity</div>
+              <div style={{ fontSize:16, color:C.ink, lineHeight:1.2 }}>{plant.humidity}</div>
+            </div>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:18, padding:14 }}>
+              <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.inkMute, letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>Water</div>
+              <div style={{ fontSize:16, color:C.ink, lineHeight:1.2 }}>every {plant.water.every}d</div>
+            </div>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:18, padding:14 }}>
+              <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.inkMute, letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>With me</div>
+              <div style={{ fontSize:16, color:C.ink, lineHeight:1.2 }}>{withMe(plant.acquired)}</div>
+            </div>
+          </div>
+        </div>
+
+        {plant.log && plant.log.length > 0 && (
+          <div style={{ padding:'22px 20px 0' }}>
+            <SectionLabel>Recent</SectionLabel>
+            <div style={{ background:C.paper, borderRadius:22, border:`0.5px solid ${C.line}`, overflow:'hidden' }}>
+              {plant.log.slice(0,5).map((l, i) => {
+                const iconMap = { water:Icon.drop, feed:Icon.leaf, rotate:Icon.rotate, repot:Icon.pot, photo:Icon.camera };
+                const colorMap = { water:'#4A7FA8', feed:C.forest, rotate:C.clay, repot:C.moss, photo:C.sand };
+                const ic = iconMap[l.type] || Icon.check;
+                const col = colorMap[l.type] || C.ink;
+                return (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:i<plant.log.length-1?`0.5px solid ${C.lineSoft}`:'none' }}>
+                    <div style={{ width:32, height:32, borderRadius:8, background:col+'15', display:'flex', alignItems:'center', justifyContent:'center' }}>{ic(col,14)}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, textTransform:'capitalize' }}>{l.type}{l.note ? ` — ${l.note}` : ''}</div>
+                      <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:1 }}>{fmtDate(l.date).toUpperCase()}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </ScreenShell>
+  );
+}
+
+// ── ADD Screen
+function AddScreen({ go, onAdd }) {
+  const [step, setStep] = useState('search');
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState(null);
+  const [nick, setNick] = useState('');
+  const [room, setRoom] = useState('Living room');
+
+  const results = useMemo(() => {
+    if (!query) return PLANT_DB.slice(0, 30);
+    const q = query.toLowerCase();
+    return PLANT_DB.filter(p => p.name.toLowerCase().includes(q) || p.species.toLowerCase().includes(q)).slice(0,50);
+  }, [query]);
+
+  if (step === 'confirm' && picked) {
+    return (
+      <ScreenShell bg={C.cream}>
+        <TopBar
+          title="New plant"
+          left={<CircleBtn size={32} onClick={() => setStep('search')}>{Icon.back(C.ink, 16)}</CircleBtn>}
+          right={<CircleBtn size={32} onClick={() => go('home')}>{Icon.close(C.ink, 16)}</CircleBtn>}
+        />
+        <div style={{ flex:1, overflow:'auto', padding:'8px 20px 120px' }}>
+          <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:22, textAlign:'center' }}>
+            <div style={{ width:100, height:100, margin:'0 auto 14px', borderRadius:22, background:`repeating-linear-gradient(135deg, ${C.forest} 0 12px, ${C.moss} 12px 24px)`, boxShadow:'inset 0 0 0 0.5px rgba(0,0,0,0.15)' }}/>
+            <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase' }}>{picked.species}</div>
+            <div style={{ fontSize:40, letterSpacing:-0.5, lineHeight:1, marginTop:4, color:C.forestDeep }}>{picked.name}</div>
+          </div>
+          <div style={{ marginTop:18 }}>
+            <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase', marginBottom:8, padding:'0 4px' }}>Nickname</div>
+            <input value={nick} onChange={e => setNick(e.target.value)} placeholder={`e.g. My ${picked.name}`} style={{ width:'100%', padding:'14px 16px', background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:14, fontSize:16, color:C.ink, outline:'none' }}/>
+          </div>
+          <div style={{ marginTop:14 }}>
+            <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase', marginBottom:8, padding:'0 4px' }}>Room</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {['Living room','Bedroom','Studio','Bathroom','Kitchen','Office','Balcony'].map(r => (
+                <button key={r} onClick={() => setRoom(r)} style={{ padding:'8px 14px', borderRadius:99, border:`0.5px solid ${room===r?C.forestDeep:C.line}`, background:room===r?C.forestDeep:C.paper, color:room===r?C.cream:C.ink, cursor:'pointer', fontSize:13 }}>{r}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop:18 }}>
+            <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase', marginBottom:8, padding:'0 4px' }}>Care plan</div>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                {Icon.spark(C.clay, 12)}
+                <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.clay, textTransform:'uppercase' }}>Tuned for {MONTH_NAMES[curMonth]}</div>
+              </div>
+              {[
+                { icon:Icon.drop('#4A7FA8',16), label:'Water', value:picked.water },
+                { icon:Icon.leaf(C.forest,16), label:'Feed', value:`every ${picked.feedDays} days` },
+                { icon:Icon.sun(C.clay,16), label:'Light', value:picked.light },
+                { icon:Icon.rotate(C.moss,16), label:'Rotate', value:`every ${picked.rotateDays} days`, last:true },
+              ].map((row, i, arr) => (
+                <div key={row.label} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:row.last?'none':`0.5px solid ${C.lineSoft}` }}>
+                  <div style={{ width:22, display:'flex', justifyContent:'center' }}>{row.icon}</div>
+                  <div style={{ flex:1, fontSize:13, color:C.inkSoft }}>{row.label}</div>
+                  <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.ink, textTransform:'uppercase', letterSpacing:0.5 }}>{row.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ height:20 }}/>
+        </div>
+        <div style={{ position:'absolute', left:0, right:0, bottom:0, padding:'14px 20px 34px', background:`linear-gradient(to top, ${C.cream} 60%, rgba(244,237,225,0))` }}>
+          <button onClick={() => { onAdd({ ...picked, nick: nick || picked.name, room }); go('home'); }} style={{ width:'100%', height:54, borderRadius:16, border:'none', background:C.forestDeep, color:C.cream, cursor:'pointer', fontSize:20, letterSpacing:0.2 }}>Add to my garden</button>
+        </div>
+      </ScreenShell>
+    );
+  }
+
+  return (
+    <ScreenShell bg={C.cream}>
+      <TopBar title="Add a plant" left={<CircleBtn size={32} onClick={() => go('home')}>{Icon.back(C.ink, 16)}</CircleBtn>}/>
+      <div style={{ padding:'4px 20px 16px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:14, padding:'12px 14px' }}>
+          {Icon.search(C.inkMute, 18)}
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search 150+ species…" style={{ flex:1, border:'none', background:'transparent', outline:'none', fontSize:15, color:C.ink }}/>
+          {query && <button onClick={() => setQuery('')} style={{ border:'none', background:'transparent', cursor:'pointer' }}>{Icon.close(C.inkMute, 14)}</button>}
+        </div>
+      </div>
+      <div style={{ flex:1, overflow:'auto', padding:'0 20px 120px' }}>
+        {!query && <SectionLabel>Popular houseplants</SectionLabel>}
+        <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, overflow:'hidden' }}>
+          {results.map((p, i) => (
+            <div key={p.name} onClick={() => { setPicked(p); setNick(''); setStep('confirm'); }} style={{ padding:'14px 16px', display:'flex', alignItems:'center', gap:12, borderTop:i?`0.5px solid ${C.lineSoft}`:'none', cursor:'pointer' }}>
+              <div style={{ width:44, height:44, borderRadius:10, flexShrink:0, background:`repeating-linear-gradient(${30+i*20}deg, ${plantHues[i%plantHues.length]} 0 6px, ${plantTints[i%plantTints.length]} 6px 12px)`, opacity:0.85 }}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:20, letterSpacing:-0.2, color:C.ink }}>{p.name}</div>
+                <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:1, letterSpacing:0.3 }}>{p.species.toUpperCase()} · {p.water.toUpperCase()}</div>
+              </div>
+              <div style={{ fontSize:10, letterSpacing:1, fontFamily:'"JetBrains Mono", monospace', color:p.diff==='Easy'?C.forest:p.diff==='Medium'?C.clay:'#8A3A2A', textTransform:'uppercase', padding:'3px 8px', border:`0.5px solid ${(p.diff==='Easy'?C.forest:p.diff==='Medium'?C.clay:'#8A3A2A')}40`, borderRadius:99, background:(p.diff==='Easy'?C.forest:p.diff==='Medium'?C.clay:'#8A3A2A')+'10' }}>{p.diff}</div>
+            </div>
+          ))}
+          {results.length === 0 && <div style={{ padding:22, textAlign:'center', color:C.inkMute, fontSize:13 }}>No matches. Try another name.</div>}
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+// ── SEASON Screen
+function SeasonScreen({ plants }) {
+  const [selected, setSelected] = useState(plants.length > 0 ? plants[0].id : null);
+  const plant = plants.find(p => p.id === selected);
+
+  if (plants.length === 0) {
+    return (
+      <ScreenShell bg={C.cream}>
+        <TopBar title="Season" left={<div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkMute, letterSpacing:1 }}>{today.getFullYear()}</div>}/>
+        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 40px' }}>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>📈</div>
+            <div style={{ fontSize:18, color:C.forestDeep, marginBottom:8 }}>No plants yet</div>
+            <div style={{ fontSize:13, color:C.inkSoft, lineHeight:1.6 }}>Add plants to see their seasonal watering curves.</div>
+          </div>
+        </div>
+      </ScreenShell>
+    );
+  }
+
+  return (
+    <ScreenShell bg={C.cream}>
+      <TopBar title="Season" left={<div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkMute, letterSpacing:1 }}>{today.getFullYear()}</div>}/>
+      <div style={{ flex:1, overflow:'auto', padding:'4px 20px 130px' }}>
+        <div style={{ padding:'4px 4px 14px' }}>
+          <div style={{ fontSize:36, lineHeight:1.05, color:C.forestDeep, letterSpacing:-0.5 }}>How <em>your garden</em> breathes through the year</div>
+          <div style={{ fontSize:13, color:C.inkSoft, marginTop:10, lineHeight:1.5 }}>Each curve shows how often a plant needs water. Schedules adjust automatically with the seasons.</div>
+        </div>
+        <div style={{ display:'flex', gap:8, overflowX:'auto', padding:'4px 4px 14px' }}>
+          {plants.map(p => (
+            <button key={p.id} onClick={() => setSelected(p.id)} style={{ padding:'8px 14px', borderRadius:99, border:`0.5px solid ${selected===p.id?C.forestDeep:C.line}`, background:selected===p.id?C.forestDeep:C.paper, color:selected===p.id?C.cream:C.ink, cursor:'pointer', fontSize:13, whiteSpace:'nowrap' }}>{p.nick} · {p.name}</button>
+          ))}
+        </div>
+        {plant && (
+          <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:20 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase' }}>Waterings this month</div>
+                <div style={{ fontSize:44, lineHeight:1, color:C.forestDeep, marginTop:4 }}>{plant.seasonCurve[curMonth]}<span style={{ fontSize:18, color:C.inkMute, fontStyle:'italic' }}> {MONTH_NAMES[curMonth]}</span></div>
+              </div>
+              {curMonth > 0 && (
+                <div style={{ fontSize:11, color:plant.seasonCurve[curMonth]>plant.seasonCurve[curMonth-1]?C.clay:C.forest, fontFamily:'"JetBrains Mono", monospace' }}>
+                  {plant.seasonCurve[curMonth] > plant.seasonCurve[curMonth-1] ? '↑' : '↓'} {Math.abs(plant.seasonCurve[curMonth]-plant.seasonCurve[curMonth-1])} VS {MONTH_NAMES[curMonth-1].toUpperCase()}
+                </div>
+              )}
+            </div>
+            <CurveSVG data={plant.seasonCurve} color={plant.hue || C.forest} current={curMonth}/>
+            <div style={{ display:'flex', gap:4, marginTop:10, justifyContent:'space-between' }}>
+              {['J','F','M','A','M','J','J','A','S','O','N','D'].map((m,i) => (
+                <div key={i} style={{ flex:1, textAlign:'center', fontFamily:'"JetBrains Mono", monospace', fontSize:9, color:i===curMonth?C.forest:C.inkMute, fontWeight:i===curMonth?'600':'400' }}>{m}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </ScreenShell>
+  );
+}
+
+function CurveSVG({ data, color, current }) {
+  const W=320, H=100, pad=8;
+  const max = Math.max(...data) + 1;
+  const pts = data.map((v,i) => [pad+(i*(W-pad*2))/(data.length-1), H-pad-(v/max)*(H-pad*2)]);
+  const path = pts.reduce((acc,[x,y],i) => {
+    if (i===0) return `M ${x} ${y}`;
+    const [px,py] = pts[i-1];
+    const cx = (px+x)/2;
+    return `${acc} C ${cx} ${py} ${cx} ${y} ${x} ${y}`;
+  },'');
+  const area = `${path} L ${W-pad} ${H} L ${pad} ${H} Z`;
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block' }}>
+      <defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.35"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+      <path d={area} fill="url(#sg)"/>
+      <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round"/>
+      {pts.map(([x,y],i) => (
+        <g key={i}>
+          {i===current && <><line x1={x} y1={y} x2={x} y2={H-4} stroke={color} strokeDasharray="2 3" strokeWidth="1"/><circle cx={x} cy={y} r="5" fill={C.paper} stroke={color} strokeWidth="2"/></>}
+          {i!==current && <circle cx={x} cy={y} r="2" fill={color} opacity="0.5"/>}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ── CHAT Screen
+function ChatScreen({ plants }) {
+  const [msgs, setMsgs] = useState([
+    { role:'ai', text: plants.length > 0
+      ? `Hi — I watch over your ${plants.length} plant${plants.length===1?'':'s'}. Ask me about watering, care, leaves, repotting, or the season ahead.`
+      : "Hi — I'm Fern, your plant care assistant. Add some plants to your garden and I'll help you take care of them. Or ask me anything about plants!" }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef();
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgs, loading]);
+
+  const send = async (text) => {
+    const t = (text || input).trim();
+    if (!t || loading) return;
+    setInput('');
+    setMsgs(m => [...m, { role:'me', text:t }]);
+    setLoading(true);
+    try {
+      const plantContext = plants.length > 0
+        ? `The user has these plants: ${plants.map(p => `${p.nick} (${p.name}, ${p.species})`).join(', ')}.`
+        : "The user has no plants yet.";
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:300,
+          system:`You are Fern, a calm expert plant-care assistant. ${plantContext} Current month: ${MONTH_NAMES[curMonth]}, spring in northern hemisphere. Be concise (2-3 short sentences), warm, practical. Never use emoji. Answer plant care questions only.`,
+          messages:[{ role:"user", content:t }]
+        })
+      });
+      const data = await response.json();
+      const reply = data.content?.[0]?.text || "I couldn't reach the server. Try again in a moment.";
+      setMsgs(m => [...m, { role:'ai', text:reply }]);
+    } catch {
+      setMsgs(m => [...m, { role:'ai', text:"I lost connection — try again in a moment." }]);
+    }
+    setLoading(false);
+  };
+
+  const suggestions = plants.length > 0
+    ? [`When should I water my ${plants[0].nick}?`, 'Why are my leaves turning yellow?', 'How do I repot a plant?']
+    : ['What is the easiest houseplant?', 'Which plants are good for low light?', 'How often should I fertilize?'];
+
+  return (
+    <ScreenShell bg={C.cream}>
+      <TopBar title="Ask Fern" left={<div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.clay, letterSpacing:1 }}>AI</div>}/>
+      <div ref={scrollRef} style={{ flex:1, overflow:'auto', padding:'0 20px 130px' }}>
+        {msgs.length === 1 && (
+          <div style={{ padding:'0 4px 16px' }}>
+            <div style={{ fontSize:30, lineHeight:1.1, color:C.forestDeep, letterSpacing:-0.3 }}><em>Ask</em> anything about your plants.</div>
+          </div>
+        )}
+        {msgs.map((m,i) => (
+          <div key={i} style={{ display:'flex', justifyContent:m.role==='me'?'flex-end':'flex-start', marginBottom:10 }}>
+            <div style={{ maxWidth:'82%', background:m.role==='me'?C.forestDeep:C.paper, color:m.role==='me'?C.cream:C.ink, border:m.role==='me'?'none':`0.5px solid ${C.line}`, borderRadius:m.role==='me'?'18px 18px 4px 18px':'18px 18px 18px 4px', padding:'12px 16px', fontSize:14, lineHeight:1.5 }}>{m.text}</div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display:'flex', gap:4, padding:'8px 16px' }}>
+            {[0,1,2].map(i => (<div key={i} style={{ width:6, height:6, borderRadius:99, background:C.inkMute, animation:`fernBlink 1.2s ease-in-out ${i*0.15}s infinite` }}/>))}
+          </div>
+        )}
+        {msgs.length === 1 && (
+          <div style={{ marginTop:10, display:'flex', flexDirection:'column', gap:8 }}>
+            {suggestions.map(s => (
+              <button key={s} onClick={() => send(s)} style={{ textAlign:'left', padding:'12px 16px', background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:14, fontSize:13, color:C.ink, fontStyle:'italic', cursor:'pointer' }}>"{s}"</button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{ position:'absolute', left:0, right:0, bottom:0, padding:'10px 16px 100px', background:`linear-gradient(to top, ${C.cream} 30%, rgba(244,237,225,0))` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:99, padding:'6px 6px 6px 18px', boxShadow:'0 4px 12px rgba(31,36,32,0.06)' }}>
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && send()} placeholder="Ask about a plant…" style={{ flex:1, border:'none', background:'transparent', outline:'none', fontSize:14, color:C.ink, padding:'8px 0' }}/>
+          <button onClick={() => send()} style={{ width:38, height:38, borderRadius:99, border:'none', background:C.forestDeep, color:C.cream, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke={C.cream} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </ScreenShell>
+  );
+}
+
+// ── CALENDAR Screen
+function CalendarScreen({ plants }) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const days = Array.from({ length:35 }, (_,i) => i);
+
+  const events = plants.flatMap(p => [
+    { date:p.water.next, type:'water', plant:p, color:'#4A7FA8' },
+    { date:p.feed.next, type:'feed', plant:p, color:C.forest },
+    { date:p.rotate.next, type:'rotate', plant:p, color:C.clay },
+  ]).filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    return d.getFullYear()===year && d.getMonth()===month;
+  });
+
+  const eventsByDay = {};
+  events.forEach(e => {
+    const d = parseInt(e.date.split('-')[2],10);
+    eventsByDay[d] = eventsByDay[d] || [];
+    eventsByDay[d].push(e);
+  });
+
+  const upcoming = plants.flatMap(p => [
+    { plant:p, type:'water', next:p.water.next, color:'#4A7FA8' },
+    { plant:p, type:'feed', next:p.feed.next, color:C.forest },
+    { plant:p, type:'rotate', next:p.rotate.next, color:C.clay },
+  ]).filter(e => daysUntil(e.next) >= 0).sort((a,b) => daysUntil(a.next)-daysUntil(b.next)).slice(0,6);
+
+  return (
+    <ScreenShell bg={C.cream}>
+      <TopBar
+        title="Calendar"
+        left={<div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkMute, letterSpacing:1 }}>{MONTH_NAMES[month].toUpperCase()}</div>}
+        right={<CircleBtn size={32} onClick={() => setShareOpen(true)}>{Icon.share(C.forest, 14)}</CircleBtn>}
+      />
+      <div style={{ flex:1, overflow:'auto', padding:'0 20px 130px' }}>
+        <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:4, marginBottom:6 }}>
+            {['S','M','T','W','T','F','S'].map((d,i) => (<div key={i} style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, color:C.inkMute, textAlign:'center', letterSpacing:1 }}>{d}</div>))}
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:4 }}>
+            {days.map(i => {
+              const day = i - firstDay + 1;
+              const inMonth = day >= 1 && day <= daysInMonth;
+              const isToday = day === today.getDate();
+              const dayEvents = eventsByDay[day] || [];
+              return (
+                <div key={i} style={{ aspectRatio:'1', borderRadius:10, background:isToday?C.forestDeep:'transparent', color:isToday?C.cream:inMonth?C.ink:C.line, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-start', padding:'4px 0' }}>
+                  <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11 }}>{inMonth?day:''}</div>
+                  {inMonth && dayEvents.length>0 && (
+                    <div style={{ display:'flex', gap:2, marginTop:2 }}>
+                      {dayEvents.slice(0,3).map((e,k) => (<div key={k} style={{ width:4, height:4, borderRadius:99, background:isToday?C.cream:e.color }}/>))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {upcoming.length > 0 && (
+          <div style={{ marginTop:20 }}>
+            <SectionLabel>Upcoming care</SectionLabel>
+            <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, overflow:'hidden' }}>
+              {upcoming.map((e,i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 16px', borderBottom:i<upcoming.length-1?`0.5px solid ${C.lineSoft}`:'none' }}>
+                  <div style={{ width:8, height:8, borderRadius:99, background:e.color, flexShrink:0 }}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14 }}>{e.type.charAt(0).toUpperCase()+e.type.slice(1)} <span style={{ fontStyle:'italic' }}>{e.plant.nick}</span></div>
+                    <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:1 }}>{e.plant.name.toUpperCase()}</div>
+                  </div>
+                  <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:11, color:C.inkSoft }}>{dayLabel(e.next)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {plants.length === 0 && (
+          <div style={{ marginTop:20, background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:24, textAlign:'center' }}>
+            <div style={{ fontSize:13, color:C.inkSoft, lineHeight:1.6 }}>Add plants to see care events in your calendar.</div>
+          </div>
+        )}
+      </div>
+      {shareOpen && <ShareSheet onClose={() => setShareOpen(false)}/>}
+    </ScreenShell>
+  );
+}
+
+function ShareSheet({ onClose }) {
+  const [copied, setCopied] = useState(false);
+  const url = 'webcal://fern.app/plants.ics';
+  const copy = () => { navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); };
+  return (
+    <div onClick={onClose} style={{ position:'absolute', inset:0, zIndex:200, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', animation:'fernFade 0.25s ease' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:'100%', background:'#F2F2F7', borderRadius:'14px 14px 0 0', padding:'8px 16px 32px', animation:'fernSlide 0.3s ease', boxSizing:'border-box' }}>
+        <div style={{ width:36, height:5, background:'rgba(60,60,67,0.3)', borderRadius:99, margin:'6px auto 14px' }}/>
+        <div style={{ textAlign:'center', marginBottom:16 }}>
+          <div style={{ width:56, height:56, margin:'0 auto 10px', borderRadius:14, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 16px rgba(255,59,48,0.3)' }}>{Icon.cal('#fff', 28)}</div>
+          <div style={{ fontSize:20, fontWeight:600, color:'#000', letterSpacing:-0.4 }}>Subscribe in Calendar</div>
+          <div style={{ fontSize:13, color:'rgba(60,60,67,0.6)', marginTop:4, padding:'0 20px', lineHeight:1.35 }}>Adds a live feed to iCloud. Updates as schedules shift.</div>
+        </div>
+        <div style={{ background:'#fff', borderRadius:14, overflow:'hidden' }}>
+          <a href={url} style={{ display:'flex', alignItems:'center', padding:'13px 16px', textDecoration:'none', color:C.forest, fontSize:17, borderBottom:'0.5px solid rgba(60,60,67,0.18)' }}>
+            <div style={{ flex:1 }}>Open in Calendar</div>{Icon.share(C.forest, 18)}
+          </a>
+          <div onClick={copy} style={{ display:'flex', alignItems:'center', padding:'13px 16px', cursor:'pointer', color:C.forest, fontSize:17 }}>
+            <div style={{ flex:1 }}>{copied ? 'Copied!' : 'Copy subscription link'}</div>
+            {copied ? Icon.check(C.forest, 18) : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke={C.forest} strokeWidth="1.6"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke={C.forest} strokeWidth="1.6"/></svg>}
+          </div>
+        </div>
+        <button onClick={onClose} style={{ marginTop:12, width:'100%', height:50, borderRadius:14, background:'#fff', border:'none', fontSize:17, fontWeight:600, color:C.forest, cursor:'pointer' }}>Done</button>
+      </div>
+    </div>
+  );
+}
+
+// ── PWA Install Sheet
+function InstallSheet({ onClose }) {
+  return (
+    <div style={{ position:'absolute', inset:0, zIndex:100, background:'rgba(31,36,32,0.5)', backdropFilter:'blur(6px)', display:'flex', alignItems:'flex-end', animation:'fernFade 0.3s ease' }}>
+      <div style={{ background:C.cream, borderRadius:'28px 28px 0 0', padding:'10px 22px 36px', width:'100%', boxSizing:'border-box', animation:'fernSlide 0.35s ease' }}>
+        <div style={{ width:38, height:5, background:C.line, borderRadius:99, margin:'0 auto 18px' }}/>
+        <div style={{ width:70, height:70, borderRadius:18, margin:'0 auto 14px', background:`repeating-linear-gradient(135deg, ${C.forest} 0 10px, ${C.moss} 10px 20px)`, boxShadow:'0 8px 24px rgba(62,86,65,0.3)' }}/>
+        <div style={{ textAlign:'center', fontSize:30, letterSpacing:-0.3, lineHeight:1.1, color:C.forestDeep }}>Keep Fern close</div>
+        <div style={{ textAlign:'center', fontSize:13, color:C.inkSoft, marginTop:8, lineHeight:1.5 }}>Add it to your home screen. Opens like an app — no browser chrome.</div>
+        <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:18, padding:16, marginTop:18 }}>
+          {[
+            { n:'1', text:'Tap', label:'Share in Safari', icon:Icon.share(C.forest, 18) },
+            { n:'2', text:'Scroll and tap', label:'Add to Home Screen', icon:<div style={{ width:22, height:22, borderRadius:6, background:C.forest, display:'flex', alignItems:'center', justifyContent:'center' }}>{Icon.plus(C.cream, 14)}</div> },
+            { n:'3', text:'Tap', label:'Add (top right)', icon:<div style={{ padding:'4px 10px', background:C.forestDeep, color:C.cream, borderRadius:6, fontSize:11 }}>Add</div>, last:true },
+          ].map(step => (
+            <div key={step.n} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 0', borderBottom:step.last?'none':`0.5px solid ${C.lineSoft}` }}>
+              <div style={{ width:22, height:22, borderRadius:99, border:`0.5px solid ${C.forest}`, color:C.forest, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontFamily:'"JetBrains Mono", monospace' }}>{step.n}</div>
+              <div style={{ flex:1, fontSize:13, color:C.inkSoft }}>{step.text} <span style={{ color:C.ink, fontWeight:500 }}>{step.label}</span></div>
+              {step.icon}
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ marginTop:14, width:'100%', height:50, borderRadius:14, background:C.forestDeep, color:C.cream, border:'none', fontSize:18, cursor:'pointer' }}>Got it</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Supabase client
+const sb = supabase.createClient(
+  'https://wsiktuycdccvqvtuhhwx.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndzaWt0dXljZGNjdnF2dHVoaHd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NTk0MzYsImV4cCI6MjA5MjMzNTQzNn0.vSeDHaloTSDepsIcp6Vklmf8pqc4RffN6nPWq7vsqPU'
+);
+
+// ── Login Screen
+function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const sendLink = async () => {
+    if (!email.includes('@')) { setError('Vul een geldig e-mailadres in.'); return; }
+    setLoading(true); setError('');
+    const { error: err } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setSent(true);
+  };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:C.cream, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 32px', fontFamily:'-apple-system, "SF Pro", system-ui, sans-serif' }}>
+      <SeasonalWash/>
+      <div style={{ position:'relative', zIndex:1, width:'100%', maxWidth:360 }}>
+        <div style={{ textAlign:'center', marginBottom:40 }}>
+          <div style={{ width:72, height:72, borderRadius:20, margin:'0 auto 16px', background:`repeating-linear-gradient(135deg, ${C.forest} 0 10px, ${C.moss} 10px 20px)`, boxShadow:'0 8px 24px rgba(62,86,65,0.3)' }}/>
+          <div style={{ fontSize:36, letterSpacing:-0.5, color:C.forestDeep, fontWeight:500 }}>Fern</div>
+          <div style={{ fontSize:14, color:C.inkSoft, marginTop:4 }}>Your plant care companion</div>
+        </div>
+        {!sent ? (
+          <div>
+            <div style={{ fontFamily:'"JetBrains Mono", monospace', fontSize:10, letterSpacing:1.5, color:C.inkMute, textTransform:'uppercase', marginBottom:8 }}>E-mailadres</div>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter' && sendLink()} placeholder="jouw@email.com"
+              style={{ width:'100%', padding:'16px', background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:16, fontSize:16, color:C.ink, outline:'none', marginBottom:12, boxSizing:'border-box' }}/>
+            {error && <div style={{ fontSize:12, color:C.clay, marginBottom:10 }}>{error}</div>}
+            <button onClick={sendLink} disabled={loading} style={{ width:'100%', height:54, borderRadius:16, border:'none', background:loading?C.moss:C.forestDeep, color:C.cream, cursor:loading?'default':'pointer', fontSize:18 }}>
+              {loading ? 'Verzenden…' : 'Stuur inloglink'}
+            </button>
+            <div style={{ textAlign:'center', fontSize:12, color:C.inkMute, marginTop:16, lineHeight:1.6 }}>Je ontvangt een magische link per e-mail.<br/>Geen wachtwoord nodig.</div>
+          </div>
+        ) : (
+          <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:28, textAlign:'center' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>📬</div>
+            <div style={{ fontSize:20, color:C.forestDeep, marginBottom:8 }}>Check je inbox</div>
+            <div style={{ fontSize:13, color:C.inkSoft, lineHeight:1.6 }}>We stuurden een link naar<br/><span style={{ fontWeight:600, color:C.ink }}>{email}</span>.<br/><br/>Tik op de link om in te loggen.</div>
+            <button onClick={() => setSent(false)} style={{ marginTop:20, background:'transparent', border:'none', color:C.forest, fontSize:13, cursor:'pointer' }}>Andere e-mail gebruiken</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP
+function App() {
+  const [session, setSession] = useState(undefined);
+  const [screen, setScreen] = useState('home');
+  const [activePlantId, setActivePlantId] = useState(null);
+  const [plantList, setPlantList] = useState([]);
+  const [plantsLoaded, setPlantsLoaded] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+
+  // Auth
+  useEffect(() => {
+    sb.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_e, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load plants
+  useEffect(() => {
+    if (!session) { setPlantsLoaded(false); setPlantList([]); return; }
+    sb.from('plants').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) setPlantList(data.map(row => ({ ...row.data, _rowId: row.id })));
+        setPlantsLoaded(true);
+      });
+  }, [session]);
+
+  // Install banner
+  useEffect(() => {
+    if (!session) return;
+    const shown = localStorage.getItem('fern_install_shown');
+    if (!shown) {
+      const t = setTimeout(() => { setShowInstall(true); localStorage.setItem('fern_install_shown','1'); }, 4000);
+      return () => clearTimeout(t);
+    }
+  }, [session]);
+
+  const go = (s) => setScreen(s);
+
+  const addPlant = async (data) => {
+    const id = 'p' + Date.now();
+    const idx = plantList.length % plantHues.length;
+    const newP = {
+      id, name:data.name, nick:data.nick, species:data.species,
+      room:data.room, acquired:todayISO,
+      water:{ every:data.waterDays||7, last:todayISO, next:addDays(todayISO, data.waterDays||7) },
+      feed:{ every:data.feedDays||30, last:todayISO, next:addDays(todayISO, data.feedDays||30) },
+      rotate:{ every:data.rotateDays||14, last:todayISO, next:addDays(todayISO, data.rotateDays||14) },
+      repot:{ every:365, last:todayISO, next:addDays(todayISO, 365) },
+      light:data.light, humidity:data.humidity||'Medium',
+      hue:plantHues[idx], tint:plantTints[idx],
+      seasonCurve:data.curve || [3,3,4,6,8,10,11,10,8,6,4,3],
+      log:[], health:95,
+    };
+    const { data: row, error } = await sb.from('plants').insert({ user_id: session.user.id, data: newP }).select().single();
+    if (!error && row) {
+      setPlantList(prev => [{ ...newP, _rowId: row.id }, ...prev]);
+      setActivePlantId(id);
+    }
+  };
+
+  const updatePlant = async (updated) => {
+    const { _rowId, ...plantData } = updated;
+    setPlantList(prev => prev.map(p => p.id === updated.id ? updated : p));
+    if (_rowId) await sb.from('plants').update({ data: plantData }).eq('id', _rowId);
+  };
+
+  // Loading auth
+  if (session === undefined) {
+    return <div style={{ position:'fixed', inset:0, background:C.cream, display:'flex', alignItems:'center', justifyContent:'center' }}><div style={{ width:32, height:32, borderRadius:99, border:`3px solid ${C.forest}`, borderTopColor:'transparent', animation:'spin 0.8s linear infinite' }}/></div>;
+  }
+
+  if (!session) return <LoginScreen/>;
+
+  if (!plantsLoaded) {
+    return <div style={{ position:'fixed', inset:0, background:C.cream, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12 }}><div style={{ width:32, height:32, borderRadius:99, border:`3px solid ${C.forest}`, borderTopColor:'transparent', animation:'spin 0.8s linear infinite' }}/><div style={{ fontSize:12, color:C.inkSoft, fontFamily:'"JetBrains Mono", monospace', letterSpacing:1 }}>LOADING YOUR GARDEN…</div></div>;
+  }
+
+  const activePlant = plantList.find(p => p.id === activePlantId);
+  const showTabBar = screen !== 'detail' && screen !== 'add';
+
+  const screenEl = (() => {
+    switch(screen) {
+      case 'home': return <HomeScreen go={go} setActivePlant={setActivePlantId} plants={plantList}/>;
+      case 'detail': return <DetailScreen go={go} plant={activePlant} onUpdatePlant={updatePlant}/>;
+      case 'add': return <AddScreen go={go} onAdd={addPlant}/>;
+      case 'season': return <SeasonScreen plants={plantList}/>;
+      case 'chat': return <ChatScreen plants={plantList}/>;
+      case 'calendar': return <CalendarScreen plants={plantList}/>;
+      default: return <HomeScreen go={go} setActivePlant={setActivePlantId} plants={plantList}/>;
+    }
+  })();
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:C.cream, overflow:'hidden' }}>
+      {screenEl}
+      {showTabBar && <TabBar screen={screen} go={go}/>}
+      {showInstall && <InstallSheet onClose={() => setShowInstall(false)}/>}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
