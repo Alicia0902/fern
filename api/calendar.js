@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 const sb = createClient(
   'https://wsiktuycdccvqvtuhhwx.supabase.co',
@@ -9,7 +9,7 @@ function toICSDate(iso) {
   return iso.replace(/-/g, '') + 'T080000Z';
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const userId = req.query.user;
   if (!userId) return res.status(400).send('Missing user');
 
@@ -18,15 +18,14 @@ export default async function handler(req, res) {
     .select('*')
     .eq('user_id', userId);
 
-  if (error) return res.status(500).send('Error');
+  if (error) return res.status(500).send('Error: ' + error.message);
 
-  const plants = data.map(row => row.data);
+  const plants = (data || []).map(row => row.data);
 
   let ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Fern//Plant Care//EN',
-    'CALNAME:🌿 Fern',
     'X-WR-CALNAME:🌿 Fern',
     'X-WR-TIMEZONE:Europe/Amsterdam',
     'REFRESH-INTERVAL;VALUE=DURATION:PT12H',
@@ -34,16 +33,16 @@ export default async function handler(req, res) {
 
   for (const p of plants) {
     const events = [
-      { type: 'Water', next: p.water?.next, every: p.water?.every, emoji: '💧' },
-      { type: 'Feed', next: p.feed?.next, every: p.feed?.every, emoji: '🌱' },
-      { type: 'Rotate', next: p.rotate?.next, every: p.rotate?.every, emoji: '🔄' },
+      { type:'Water', next:p.water?.next, every:p.water?.every, emoji:'💧' },
+      { type:'Feed', next:p.feed?.next, every:p.feed?.every, emoji:'🌱' },
+      { type:'Rotate', next:p.rotate?.next, every:p.rotate?.every, emoji:'🔄' },
     ];
     for (const e of events) {
       if (!e.next) continue;
       ics.push('BEGIN:VEVENT');
       ics.push(`UID:${p.id}-${e.type}-${e.next}@fern`);
-      ics.push(`DTSTART:${toICSDate(e.next)}`);
-      ics.push(`DTEND:${toICSDate(e.next)}`);
+      ics.push(`DTSTART;VALUE=DATE:${e.next.replace(/-/g,'')}`);
+      ics.push(`DTEND;VALUE=DATE:${e.next.replace(/-/g,'')}`);
       ics.push(`SUMMARY:${e.emoji} ${e.type} ${p.nick}`);
       ics.push(`DESCRIPTION:${p.name} (${p.species})`);
       ics.push('END:VEVENT');
@@ -55,4 +54,4 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   res.send(ics.join('\r\n'));
-}
+};
