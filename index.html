@@ -411,6 +411,10 @@ function HomeScreen({ go, setActivePlant, plants }) {
               {plants.map(p => (
                 <PlantRowItem key={p.id} plant={p} onClick={() => { setActivePlant(p.id); go('detail'); }}/>
               ))}
+              <div onClick={() => go('graveyard')} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 4px', cursor:'pointer', opacity:0.5 }}>
+                <div style={{ fontSize:22 }}>🪦</div>
+                <div style={{ fontSize:14, color:C.inkMute, fontStyle:'italic' }}>Kerkhof</div>
+              </div>
             </div>
           </>
         )}
@@ -497,7 +501,7 @@ function getPlantTips(name) {
 }
 
 // ── DETAIL Screen
-function DetailScreen({ go, plant, onUpdatePlant, session }) {
+function DetailScreen({ go, plant, onUpdatePlant, session, onDelete }) {
   if (!plant) return null;
   const [justDone, setJustDone] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -515,13 +519,28 @@ function DetailScreen({ go, plant, onUpdatePlant, session }) {
   const dueTasks = tasks.filter(t => daysUntil(t.d.next) <= 0).sort((a,b) => daysUntil(a.d.next)-daysUntil(b.d.next));
   const tips = getPlantTips(plant.name);
 
+  const [undoStack, setUndoStack] = useState({});
+
   const markDone = (type) => {
+    // Save previous state for undo
+    setUndoStack(prev => ({ ...prev, [type]: { 
+      [type]: plant[type], 
+      log: plant.log 
+    }}));
     const updated = { ...plant, _rowId: plant._rowId };
     updated[type] = { ...plant[type], last:todayISO, next:addDays(todayISO, plant[type].every) };
     updated.log = [{ date:todayISO, type, note:'' }, ...(plant.log || [])];
     onUpdatePlant(updated);
     setJustDone(type);
-    setTimeout(() => setJustDone(null), 2000);
+  };
+
+  const undoTask = (type) => {
+    const prev = undoStack[type];
+    if (!prev) return;
+    const updated = { ...plant, _rowId: plant._rowId, ...prev };
+    onUpdatePlant(updated);
+    setJustDone(null);
+    setUndoStack(s => { const n = {...s}; delete n[type]; return n; });
   };
 
   const uploadPhoto = async (file) => {
@@ -571,6 +590,9 @@ function DetailScreen({ go, plant, onUpdatePlant, session }) {
                 : Icon.camera(C.ink, 16)
               }
             </CircleBtn>
+            <CircleBtn size={36} bg="rgba(255,255,255,0.85)" onClick={() => { if(window.confirm(`Verplaats ${plant.nick} naar het kerkhof?`)) onDelete(plant.id); }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v10M8 7l4-4 4 4M5 11h14l-1 9H6L5 11z" stroke={C.clay} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </CircleBtn>
           </div>
         </div>
         <div style={{ position:'absolute', bottom:16, left:22, right:22, color:'#fff' }}>
@@ -607,6 +629,9 @@ function DetailScreen({ go, plant, onUpdatePlant, session }) {
                         {Icon.check(C.cream, 16)}
                       </div>
                     )}
+                    {done && (
+                      <button onClick={e => { e.stopPropagation(); undoTask(t.type); }} style={{ padding:'6px 12px', borderRadius:99, border:`0.5px solid ${C.clay}`, background:'transparent', color:C.clay, fontSize:11, fontFamily:'"JetBrains Mono", monospace', cursor:'pointer', letterSpacing:0.5 }}>UNDO</button>
+                    )}
                   </div>
                 );
               })}
@@ -632,9 +657,12 @@ function DetailScreen({ go, plant, onUpdatePlant, session }) {
                       <div style={{ fontSize:15, color:C.ink }}>{t.label}</div>
                       <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:2 }}>ELKE {t.d.every} DAGEN</div>
                     </div>
-                    <div style={{ textAlign:'right' }}>
+                    <div style={{ textAlign:'right', display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
                       <div style={{ fontSize:20, fontWeight:500, color:done?C.forest:t.c, lineHeight:1 }}>{done?'✓':days}</div>
                       <div style={{ fontSize:10, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:2 }}>{done?'KLAAR':'DAGEN'}</div>
+                      {done && (
+                        <button onClick={e => { e.stopPropagation(); undoTask(t.type); }} style={{ padding:'4px 10px', borderRadius:99, border:`0.5px solid ${C.clay}`, background:'transparent', color:C.clay, fontSize:10, fontFamily:'"JetBrains Mono", monospace', cursor:'pointer', letterSpacing:0.5 }}>UNDO</button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1160,6 +1188,51 @@ function InstallSheet({ onClose }) {
   );
 }
 
+// ── GRAVEYARD Screen
+function GraveyardScreen({ go, graveyard }) {
+  return (
+    <ScreenShell bg={C.cream}>
+      <TopBar
+        title="Kerkhof"
+        left={<CircleBtn size={32} onClick={() => go('home')}>{Icon.back(C.ink, 16)}</CircleBtn>}
+      />
+      <div style={{ flex:1, overflow:'auto', padding:'8px 20px 130px' }}>
+        <div style={{ padding:'4px 4px 18px' }}>
+          <div style={{ fontSize:32, color:C.forestDeep, letterSpacing:-0.3, lineHeight:1.1 }}>Gevallen helden 🪦</div>
+          <div style={{ fontSize:13, color:C.inkSoft, marginTop:8, lineHeight:1.5 }}>Planten die hun strijd hebben verloren. Ze leven voort in onze herinneringen.</div>
+        </div>
+        {graveyard.length === 0 ? (
+          <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, padding:28, textAlign:'center' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>🌱</div>
+            <div style={{ fontSize:16, color:C.forestDeep, marginBottom:8 }}>Nog geen gevallen planten</div>
+            <div style={{ fontSize:13, color:C.inkSoft, lineHeight:1.6 }}>Gefeliciteerd — je tuin gedijt!</div>
+          </div>
+        ) : (
+          <div style={{ background:C.paper, border:`0.5px solid ${C.line}`, borderRadius:22, overflow:'hidden' }}>
+            {graveyard.map((p, i) => {
+              const idx = i % plantHues.length;
+              return (
+                <div key={p.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px', borderBottom:i<graveyard.length-1?`0.5px solid ${C.lineSoft}`:'none', opacity:0.7 }}>
+                  <div style={{ width:52, height:52, borderRadius:12, flexShrink:0, background:`repeating-linear-gradient(135deg, #888 0 8px, #aaa 8px 16px)`, filter:'grayscale(100%)' }}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:18, color:C.ink, letterSpacing:-0.2 }}>{p.nick}</div>
+                    <div style={{ fontSize:11, color:C.inkMute, fontFamily:'"JetBrains Mono", monospace', marginTop:1 }}>{p.name.toUpperCase()} · {p.room}</div>
+                    <div style={{ fontSize:11, color:C.inkMute, fontStyle:'italic', marginTop:2 }}>
+                      {p.acquired ? `${withMe(p.acquired)} bij je geweest` : ''} · gestorven {fmtDate(p.diedOn)}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:20 }}>🪦</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </ScreenShell>
+  );
+}
+
+
 // ── Supabase client
 const sb = supabase.createClient(
   'https://wsiktuycdccvqvtuhhwx.supabase.co',
@@ -1318,14 +1391,33 @@ function App() {
   const activePlant = plantList.find(p => p.id === activePlantId);
   const showTabBar = screen !== 'detail' && screen !== 'add';
 
+  const [graveyard, setGraveyard] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fern_graveyard') || '[]'); } catch { return []; }
+  });
+
+  const deletePlant = async (plantId) => {
+    const plant = plantList.find(p => p.id === plantId);
+    if (!plant) return;
+    // Move to graveyard
+    const dead = { ...plant, diedOn: todayISO };
+    const newGrave = [dead, ...graveyard];
+    setGraveyard(newGrave);
+    localStorage.setItem('fern_graveyard', JSON.stringify(newGrave));
+    // Remove from Supabase
+    if (plant._rowId) await sb.from('plants').delete().eq('id', plant._rowId);
+    setPlantList(prev => prev.filter(p => p.id !== plantId));
+    go('home');
+  };
+
   const screenEl = (() => {
     switch(screen) {
       case 'home': return <HomeScreen go={go} setActivePlant={setActivePlantId} plants={plantList}/>;
-      case 'detail': return <DetailScreen go={go} plant={activePlant} onUpdatePlant={updatePlant} session={session}/>;
+      case 'detail': return <DetailScreen go={go} plant={activePlant} onUpdatePlant={updatePlant} session={session} onDelete={deletePlant}/>;
       case 'add': return <AddScreen go={go} onAdd={addPlant}/>;
       case 'season': return <SeasonScreen plants={plantList}/>;
       case 'chat': return <ChatScreen plants={plantList}/>;
       case 'calendar': return <CalendarScreen plants={plantList} userId={session.user.id}/>;
+      case 'graveyard': return <GraveyardScreen go={go} graveyard={graveyard}/>;
       default: return <HomeScreen go={go} setActivePlant={setActivePlantId} plants={plantList}/>;
     }
   })();
