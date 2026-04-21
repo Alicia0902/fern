@@ -934,7 +934,7 @@ function ChatScreen({ plants }) {
 }
 
 // ── CALENDAR Screen
-function CalendarScreen({ plants }) {
+function CalendarScreen({ plants, userId }) {
   const [shareOpen, setShareOpen] = useState(false);
   const year = today.getFullYear();
   const month = today.getMonth();
@@ -1020,15 +1020,22 @@ function CalendarScreen({ plants }) {
           </div>
         )}
       </div>
-      {shareOpen && <ShareSheet onClose={() => setShareOpen(false)}/>}
+      {shareOpen && <ShareSheet onClose={() => setShareOpen(false)} userId={userId}/>}
     </ScreenShell>
   );
 }
 
-function ShareSheet({ onClose }) {
+function ShareSheet({ onClose, userId }) {
   const [copied, setCopied] = useState(false);
-  const url = 'webcal://fern.app/plants.ics';
-  const copy = () => { navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); };
+  const feedUrl = `https://fern-blush.vercel.app/api/calendar?user=${userId}`;
+  const webcalUrl = feedUrl.replace('https://', 'webcal://');
+
+  const copy = () => {
+    navigator.clipboard?.writeText(feedUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
   return (
     <div onClick={onClose} style={{ position:'absolute', inset:0, zIndex:200, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', animation:'fernFade 0.25s ease' }}>
       <div onClick={e => e.stopPropagation()} style={{ width:'100%', background:'#F2F2F7', borderRadius:'14px 14px 0 0', padding:'8px 16px 32px', animation:'fernSlide 0.3s ease', boxSizing:'border-box' }}>
@@ -1036,18 +1043,18 @@ function ShareSheet({ onClose }) {
         <div style={{ textAlign:'center', marginBottom:16 }}>
           <div style={{ width:56, height:56, margin:'0 auto 10px', borderRadius:14, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 16px rgba(255,59,48,0.3)' }}>{Icon.cal('#fff', 28)}</div>
           <div style={{ fontSize:20, fontWeight:600, color:'#000', letterSpacing:-0.4 }}>Subscribe in Calendar</div>
-          <div style={{ fontSize:13, color:'rgba(60,60,67,0.6)', marginTop:4, padding:'0 20px', lineHeight:1.35 }}>Adds a live feed to iCloud. Updates as schedules shift.</div>
+          <div style={{ fontSize:13, color:'rgba(60,60,67,0.6)', marginTop:4, padding:'0 20px', lineHeight:1.35 }}>Live feed — updates automatisch als je taken afvinkt.</div>
         </div>
         <div style={{ background:'#fff', borderRadius:14, overflow:'hidden' }}>
-          <a href={url} style={{ display:'flex', alignItems:'center', padding:'13px 16px', textDecoration:'none', color:C.forest, fontSize:17, borderBottom:'0.5px solid rgba(60,60,67,0.18)' }}>
-            <div style={{ flex:1 }}>Open in Calendar</div>{Icon.share(C.forest, 18)}
+          <a href={webcalUrl} style={{ display:'flex', alignItems:'center', padding:'13px 16px', textDecoration:'none', color:'#007AFF', fontSize:17, borderBottom:'0.5px solid rgba(60,60,67,0.18)' }}>
+            <div style={{ flex:1 }}>Open in Agenda (iPhone)</div>{Icon.share('#007AFF', 18)}
           </a>
-          <div onClick={copy} style={{ display:'flex', alignItems:'center', padding:'13px 16px', cursor:'pointer', color:C.forest, fontSize:17 }}>
-            <div style={{ flex:1 }}>{copied ? 'Copied!' : 'Copy subscription link'}</div>
-            {copied ? Icon.check(C.forest, 18) : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke={C.forest} strokeWidth="1.6"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke={C.forest} strokeWidth="1.6"/></svg>}
+          <div onClick={copy} style={{ display:'flex', alignItems:'center', padding:'13px 16px', cursor:'pointer', color:'#007AFF', fontSize:17 }}>
+            <div style={{ flex:1 }}>{copied ? 'Gekopieerd!' : 'Kopieer abonnement-link'}</div>
+            {copied ? Icon.check('#007AFF', 18) : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke="#007AFF" strokeWidth="1.6"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke="#007AFF" strokeWidth="1.6"/></svg>}
           </div>
         </div>
-        <button onClick={onClose} style={{ marginTop:12, width:'100%', height:50, borderRadius:14, background:'#fff', border:'none', fontSize:17, fontWeight:600, color:C.forest, cursor:'pointer' }}>Done</button>
+        <button onClick={onClose} style={{ marginTop:12, width:'100%', height:50, borderRadius:14, background:'#fff', border:'none', fontSize:17, fontWeight:600, color:'#007AFF', cursor:'pointer' }}>Klaar</button>
       </div>
     </div>
   );
@@ -1234,7 +1241,7 @@ function App() {
       case 'add': return <AddScreen go={go} onAdd={addPlant}/>;
       case 'season': return <SeasonScreen plants={plantList}/>;
       case 'chat': return <ChatScreen plants={plantList}/>;
-      case 'calendar': return <CalendarScreen plants={plantList}/>;
+      case 'calendar': return <CalendarScreen plants={plantList} userId={session.user.id}/>;
       default: return <HomeScreen go={go} setActivePlant={setActivePlantId} plants={plantList}/>;
     }
   })();
